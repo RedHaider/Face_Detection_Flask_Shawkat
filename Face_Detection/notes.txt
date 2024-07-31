@@ -1,0 +1,20 @@
+#Install virtual environement
+pip install virtualenv
+python -m venv myenv
+
+#activate virtual environment
+myenv\Scripts\activate
+
+#install Flask
+pip install Flask
+
+#install Requirements.txt
+pip install -r requirements.txt
+
+
+#if faces problem to install dlib watch this youtube video
+#take the binary file to your project folder, install there
+https://www.youtube.com/watch?v=sS010y23neU
+
+#if face problem installing cmake watch this youtube video
+https://www.youtube.com/watch?v=8_X5Iq9niDE
