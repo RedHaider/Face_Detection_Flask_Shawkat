@@ -1,7 +1,9 @@
-from flask import Flask, render_template, Response
+from flask import Flask, render_template, Response, request, jsonify
 import cv2
 import face_recognition
 import pickle
+import numpy as np
+import requests
 
 app = Flask(__name__)
 
@@ -14,7 +16,7 @@ def load_trained_faces(filename='trained_faces.pkl'):
 known_face_encodings, known_face_names = load_trained_faces()
 
 # Initialize video capture
-video_capture = cv2.VideoCapture(1)  # Use 0 for default camera
+video_capture = cv2.VideoCapture(0)  # Use 0 for default camera
 
 def generate_frames():
     while True:
@@ -27,10 +29,6 @@ def generate_frames():
         if frame is None:
             print("Captured frame is None")
             continue
-
-        # Print frame details for debugging
-        # print(f"Frame shape: {frame.shape}")
-        # print(f"Frame dtype: {frame.dtype}")
 
         # Ensure the frame is in 8-bit format
         if frame.dtype != 'uint8':
@@ -81,7 +79,6 @@ def generate_frames():
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -90,7 +87,46 @@ def index():
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@
+@app.route('/detect_faces', methods=['POST'])
+def detect_faces():
+    file = request.files['image']
+    if not file:
+        return jsonify({"error": "No file provided"}), 400
+
+    # Convert the file to an array
+    image = np.frombuffer(file.read(), np.uint8)
+
+    # Decode the image
+    image = cv2.imdecode(image, cv2.IMREAD_COLOR)
+    if image is None:
+        return jsonify({"error": "Failed to decode image"}), 400
+
+    # Convert the image to RGB
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    # Detect faces
+    face_locations = face_recognition.face_locations(rgb_image, model='hog')
+    face_encodings = face_recognition.face_encodings(rgb_image, face_locations)
+
+    detected_names = []
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+
+        if True in matches:
+            first_match_index = matches.index(True)
+            name = known_face_names[first_match_index]
+
+        detected_names.append(name)
+
+    #send detected names to Django API
+    for name in detected_names:
+        response = requests.post('http://127.0.0.1:8000/face_detection/api/face_detection/', data={'name': name})
+        if response.status_code != 200:
+             print(f"Failed to send name {name} to Django API: {response.status_code}")
+
+
+    return jsonify({"detected_names": detected_names})
 
 if __name__ == "__main__":
-    app.run(debug=Tr
+    app.run(debug=True)
