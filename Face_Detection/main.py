@@ -1,17 +1,23 @@
+from flask import Flask, render_template, Response, jsonify
 import cv2
 import face_recognition
-import numpy as np
-import requests
-import datetime
 import pickle
-import json
+import numpy as np
 
+app = Flask(__name__)
+
+# Load the trained face encodings and names
 def load_trained_faces(filename='trained_faces.pkl'):
     with open(filename, 'rb') as f:
         known_face_encodings, known_face_names = pickle.load(f)
     return known_face_encodings, known_face_names
 
-def recognize_faces(frame, known_face_encodings, known_face_names):
+known_face_encodings, known_face_names = load_trained_faces()
+
+# Initialize video capture
+video_capture = cv2.VideoCapture(0)
+
+def recognize_faces(frame):
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     face_locations = face_recognition.face_locations(rgb_frame, model='hog')
     face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
@@ -36,52 +42,26 @@ def recognize_faces(frame, known_face_encodings, known_face_names):
         font = cv2.FONT_HERSHEY_DUPLEX
         cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-    return frame, recognized_names
+    return frame
 
-def mark_attendance(names):
-    attendance_log = []
-    now = datetime.datetime.now()
-    for name in names:
-        attendance_log.append({'name': name, 'time': now.strftime("%Y-%m-%d %H:%M:%S")})
-        print(f"Attendance marked for {name} at {now}")
-    return attendance_log
-
-def upload_attendance(attendance_log):
-    server_url = "http://192.168.0.126/attendance/upload_attendance.php"
-    data = {'attendance_log': json.dumps(attendance_log)}
-
-    try:
-        response = requests.post(server_url, data=data)
-        if response.status_code == 200:
-            print("Attendance data uploaded successfully")
-        else:
-            print(f"Failed to upload attendance data. Status code: {response.status_code}")
-    except requests.exceptions.RequestException as e:
-        print(f"Error uploading attendance data: {e}")
-
-def main():
-    known_face_encodings, known_face_names = load_trained_faces()
-    video_capture = cv2.VideoCapture(0)
-
+def gen_frames():
     while True:
-        ret, frame = video_capture.read()
-        if not ret:
-            continue
-
-        frame, recognized_names = recognize_faces(frame, known_face_encodings, known_face_names)
-
-        if recognized_names:
-            print(f'Recognized faces: {recognized_names}')
-            attendance_log = mark_attendance(recognized_names)
-            upload_attendance(attendance_log)
-
-        cv2.imshow('Video', frame)
-
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        success, frame = video_capture.read()
+        if not success:
             break
+        frame = recognize_faces(frame)
+        ret, buffer = cv2.imencode('.jpg', frame)
+        frame = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-    video_capture.release()
-    cv2.destroyAllWindows()
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == "__main__":
-    main()
+    app.run(debug=True)

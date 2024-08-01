@@ -16,5 +16,10 @@ pip install -r requirements.txt
 #take the binary file to your project folder, install there
 https://www.youtube.com/watch?v=sS010y23neU
 
+pip install dlib-19.24.99-cp312-cp312-win_amd64.whl   //for python12
+
+pip install dlib-19.22.99-cp310-cp310-win_amd64.whl  //for python 10
+
+
 #if face problem installing cmake watch this youtube video
 https://www.youtube.com/watch?v=8_X5Iq9niDE

@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Face Detection</title>
+    <style>
+        /* CSS for styling the border around the video feed */
+        img {
+            border: 5px solid #00FF00; /* Green border */
+            border-radius: 10px;       /* Optional: Rounded corners */
+        }
+    </style>
+</head>
+<body>
+    <h1>Face Detection</h1>
+    <img src="{{ url_for('video_feed') }}" width="640" height="480" alt="Video Feed">
+</body>
+</html>
